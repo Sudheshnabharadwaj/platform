@@ -45,9 +45,25 @@ export const TopNavigation: React.FC<TopNavigationProps> = ({
   const [searchValue, setSearchValue] = useState('');
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
-  const [adminAvatar, setAdminAvatar] = useState<string>(
-    localStorage.getItem('admin_profile_avatar') || ''
-  );
+  const [adminProfile, setAdminProfile] = useState<{ name: string; avatarUrl: string; role: string }>(() => {
+    const cached = localStorage.getItem('admin_profile_data');
+    if (cached) {
+      try {
+        const parsed = JSON.parse(cached);
+        return {
+          name: parsed.name || 'Hyma',
+          avatarUrl: parsed.avatarUrl || localStorage.getItem('admin_profile_avatar') || '',
+          role: parsed.role || 'Admin',
+        };
+      } catch {}
+    }
+    return {
+      name: 'Hyma',
+      avatarUrl: localStorage.getItem('admin_profile_avatar') || '',
+      role: 'Admin',
+    };
+  });
+
   const [notifications, setNotifications] = useState<NotificationItem[]>(
     initialNotificationsProp || defaultNotifications
   );
@@ -56,11 +72,28 @@ export const TopNavigation: React.FC<TopNavigationProps> = ({
   const notifRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const checkAvatar = () => {
-      setAdminAvatar(localStorage.getItem('admin_profile_avatar') || '');
+    const checkProfile = () => {
+      const cached = localStorage.getItem('admin_profile_data');
+      if (cached) {
+        try {
+          const parsed = JSON.parse(cached);
+          setAdminProfile({
+            name: parsed.name || 'Hyma',
+            avatarUrl: parsed.avatarUrl || localStorage.getItem('admin_profile_avatar') || '',
+            role: parsed.role || 'Admin',
+          });
+          return;
+        } catch {}
+      }
+      setAdminProfile({
+        name: 'Hyma',
+        avatarUrl: localStorage.getItem('admin_profile_avatar') || '',
+        role: 'Admin',
+      });
     };
-    window.addEventListener('storage', checkAvatar);
-    return () => window.removeEventListener('storage', checkAvatar);
+    checkProfile();
+    window.addEventListener('storage', checkProfile);
+    return () => window.removeEventListener('storage', checkProfile);
   }, []);
 
   const hasUnread = notifications.some((n) => !n.isRead);
@@ -200,21 +233,21 @@ export const TopNavigation: React.FC<TopNavigationProps> = ({
             onClick={() => setShowProfileMenu(!showProfileMenu)}
             className="flex items-center gap-2 p-1 pr-2 sm:pr-3 rounded-full bg-white border border-slate-200 hover:border-slate-300 transition-all cursor-pointer shadow-2xs shrink-0"
           >
-            {adminAvatar ? (
+            {adminProfile.avatarUrl ? (
               <img
-                src={adminAvatar}
-                alt="Hyma"
+                src={adminProfile.avatarUrl}
+                alt={adminProfile.name}
                 className="w-7 h-7 rounded-full object-cover shrink-0 border border-slate-200"
               />
             ) : (
               <div className="w-7 h-7 rounded-full bg-[#0284C7] text-white flex items-center justify-center font-bold text-xs shrink-0">
-                H
+                {adminProfile.name.charAt(0)}
               </div>
             )}
             <div className="text-left hidden lg:block">
-              <div className="text-xs font-semibold text-slate-800 leading-tight">Hyma</div>
+              <div className="text-xs font-semibold text-slate-800 leading-tight">{adminProfile.name}</div>
               <div className="text-[10px] font-bold text-[#0284C7] flex items-center gap-1 uppercase tracking-wider">
-                <ShieldCheck className="w-3 h-3 inline" /> Admin
+                <ShieldCheck className="w-3 h-3 inline" /> {adminProfile.role}
               </div>
             </div>
             <ChevronDown className="w-3.5 h-3.5 text-slate-500" />
@@ -223,9 +256,9 @@ export const TopNavigation: React.FC<TopNavigationProps> = ({
           {showProfileMenu && (
             <div className="absolute right-0 mt-2 w-56 max-w-[calc(100vw-2rem)] bg-white border border-slate-200 rounded-xl shadow-xl py-1.5 z-50">
               <div className="px-4 py-2 border-b border-slate-100">
-                <p className="text-xs font-bold text-slate-900">Hyma</p>
+                <p className="text-xs font-bold text-slate-900">{adminProfile.name}</p>
                 <span className="inline-block mt-0.5 text-[10px] font-bold text-[#0284C7] bg-sky-50 px-2 py-0.5 rounded border border-sky-200 uppercase">
-                  Admin
+                  {adminProfile.role}
                 </span>
               </div>
 

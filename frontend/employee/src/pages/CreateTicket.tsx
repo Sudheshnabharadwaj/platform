@@ -1,13 +1,15 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { PlusCircle, ArrowLeft, Paperclip, CheckCircle, Mail, ExternalLink, AlertCircle, Check, ArrowRight } from 'lucide-react';
+import { PlusCircle, ArrowLeft, CheckCircle, Mail, ExternalLink, AlertCircle, Check } from 'lucide-react';
 import { EmployeeService } from '../services/employeeService';
-import { EmailService, type SentEmailNotification, type TeamLead } from '../services/emailService';
+import { EmailService, type SentEmailNotification } from '../services/emailService';
 import type { TicketPriority } from '../types';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { Select } from '../components/ui/Select';
 import { Badge } from '../components/ui/Badge';
+import { AttachmentFilePicker, type AttachedFile } from '../components/ui/AttachmentFilePicker';
+import { TeamLeadSelector, type TeamLeadOption } from '../components/ui/TeamLeadSelector';
 
 const DEPARTMENT_OPTIONS = [
   'IT Support',
@@ -28,21 +30,13 @@ export const CreateTicket: React.FC = () => {
   const [selectedDepartments, setSelectedDepartments] = useState<string[]>(['IT Support']);
   const [customDepartment, setCustomDepartment] = useState('');
   const [priority, setPriority] = useState<TicketPriority>('Medium');
-  const [attachmentName, setAttachmentName] = useState('');
+  const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([]);
+  const [selectedTeamLeadIds, setSelectedTeamLeadIds] = useState<string[]>([]);
+  const [selectedTeamLeadObjs, setSelectedTeamLeadObjs] = useState<TeamLeadOption[]>([]);
+
   const [isSuccess, setIsSuccess] = useState(false);
   const [createdTicketId, setCreatedTicketId] = useState('');
   const [sentEmailLogs, setSentEmailLogs] = useState<SentEmailNotification[]>([]);
-
-  // Compute active department list for routing
-  const activeDepartments = selectedDepartments.map((dept) =>
-    dept === 'Other' ? (customDepartment.trim() || 'Other Department') : dept
-  );
-
-  // Automatically identify Team Leads responsible for every selected department
-  const autoIdentifiedLeads: TeamLead[] = EmailService.findTeamLeadsForDepartments(
-    activeDepartments,
-    category
-  );
 
   const toggleDepartment = (deptName: string) => {
     if (selectedDepartments.includes(deptName)) {
@@ -64,13 +58,22 @@ export const CreateTicket: React.FC = () => {
       dept === 'Other' ? (customDepartment.trim() || 'Other') : dept
     );
 
+    const attachmentStrings = attachedFiles.map((f) => `${f.name} (${f.size})`);
+
     const newTicket = EmployeeService.createTicket({
       title: subject,
       description,
       category: finalCategory,
       departments: finalDepartments,
       priority,
-      attachments: attachmentName.trim() ? [attachmentName.trim()] : [],
+      attachments: attachmentStrings,
+      teamLeads: selectedTeamLeadObjs.map((tl) => ({
+        id: tl.id,
+        name: tl.name,
+        email: tl.email,
+        department: tl.department,
+        role: tl.role,
+      })),
     });
 
     // Retrieve sent email logs for this ticket
@@ -222,6 +225,10 @@ export const CreateTicket: React.FC = () => {
     );
   }
 
+  const activeDepartments = selectedDepartments.map((dept) =>
+    dept === 'Other' ? (customDepartment.trim() || 'Other Department') : dept
+  );
+
   return (
     <div className="max-w-3xl mx-auto space-y-6 font-sans pb-12">
       {/* Top Bar */}
@@ -244,7 +251,7 @@ export const CreateTicket: React.FC = () => {
           <div>
             <h1 className="text-lg font-bold text-slate-900">Create New Support Ticket</h1>
             <p className="text-xs text-slate-500 font-medium">
-              Fill out the form below to submit a new issue. Select multiple departments as needed.
+              Fill out the form below to submit a new issue. Select multiple departments & team leads as needed.
             </p>
           </div>
         </div>
@@ -317,24 +324,17 @@ export const CreateTicket: React.FC = () => {
                 />
               </div>
             )}
-
-            {/* Real-time Ticket Routing Box */}
-            <div className="mt-3 bg-white border border-sky-200/90 rounded-xl p-3.5 space-y-2 shadow-2xs">
-              <div className="text-xs font-bold text-[#0284C7] uppercase tracking-wider">
-                Ticket Routing
-              </div>
-              <div className="space-y-1.5">
-                {autoIdentifiedLeads.map((tl) => (
-                  <div key={tl.id} className="text-xs font-medium text-slate-700 flex items-center gap-2">
-                    <span className="font-semibold text-slate-900">{tl.department}</span>
-                    <ArrowRight className="w-3.5 h-3.5 text-slate-400" />
-                    <span className="font-bold text-[#0284C7]">{tl.name}</span>
-                    <span className="text-[11px] text-slate-400">({tl.role})</span>
-                  </div>
-                ))}
-              </div>
-            </div>
           </div>
+
+          {/* Dynamic Team Lead Selection Component */}
+          <TeamLeadSelector
+            selectedDepartments={activeDepartments}
+            selectedTeamLeadIds={selectedTeamLeadIds}
+            onSelectedTeamLeadsChange={(ids, objs) => {
+              setSelectedTeamLeadIds(ids);
+              setSelectedTeamLeadObjs(objs);
+            }}
+          />
 
           {/* Category Row */}
           <div>
@@ -400,24 +400,13 @@ export const CreateTicket: React.FC = () => {
             />
           </div>
 
-          {/* Attachments */}
-          <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1.5">
-              Attachments (Optional)
-            </label>
-            <div className="flex items-center gap-2">
-              <div className="relative flex-1">
-                <Paperclip className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                <input
-                  type="text"
-                  placeholder="Attach log file or document name (e.g. error_screenshot.png)"
-                  value={attachmentName}
-                  onChange={(e) => setAttachmentName(e.target.value)}
-                  className="w-full bg-white border border-slate-200 rounded-xl pl-9 pr-4 py-2 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-[#0284C7]"
-                />
-              </div>
-            </div>
-          </div>
+          {/* System File Picker Attachment Component */}
+          <AttachmentFilePicker
+            files={attachedFiles}
+            onFilesChange={setAttachedFiles}
+            label="Attachments (Optional)"
+            buttonText="Upload Files from Local PC"
+          />
 
           {/* Form Actions */}
           <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">

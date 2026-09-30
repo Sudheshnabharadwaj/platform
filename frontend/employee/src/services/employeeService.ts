@@ -316,6 +316,7 @@ export const EmployeeService = {
     priority: TicketPriority;
     description: string;
     attachments?: string[];
+    teamLeads?: AssignedTeamLead[];
   }): EmployeeTicket {
     const tickets = this.getTickets();
     const nextNum = 2001 + tickets.length;
@@ -327,8 +328,16 @@ export const EmployeeService = {
       : [data.department || 'IT Support'];
     const mainDepartmentStr = selectedDepts.join(' & ');
 
-    // Automatically identify Team Leads responsible for selected departments
-    const teamLeads = EmailService.findTeamLeadsForDepartments(selectedDepts, data.category);
+    // Automatically identify or use selected Team Leads
+    const teamLeads: AssignedTeamLead[] = data.teamLeads && data.teamLeads.length > 0
+      ? data.teamLeads
+      : EmailService.findTeamLeadsForDepartments(selectedDepts, data.category).map((tl) => ({
+          id: tl.id,
+          name: tl.name,
+          email: tl.email,
+          department: tl.department,
+          role: tl.role,
+        }));
 
     const routingSummaryText = teamLeads.length > 0
       ? `Ticket automatically routed to ${teamLeads.map((tl) => `${tl.department} (${tl.name} — ${tl.role})`).join(' and ')}.`

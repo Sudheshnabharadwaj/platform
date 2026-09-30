@@ -5,6 +5,7 @@ import { Input } from '../components/ui/Input';
 import { Select } from '../components/ui/Select';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
+import { PasswordStrengthValidator, validatePassword } from '../components/ui/PasswordStrengthValidator';
 import type { UserRole, UserDepartment } from '../types';
 import { AdminApiService } from '../services/api';
 import {
@@ -87,8 +88,11 @@ export const AddUserPage: React.FC = () => {
     if (!formData.sendEmailInvite || formData.password) {
       if (!formData.password) {
         newErrors.password = 'Password is required when not sending auto-invite';
-      } else if (formData.password.length < 6) {
-        newErrors.password = 'Password must be at least 6 characters';
+      } else {
+        const pwdRes = validatePassword(formData.password);
+        if (!pwdRes.isValid) {
+          newErrors.password = 'Password does not meet all security requirements';
+        }
       }
 
       if (formData.password !== formData.confirmPassword) {
@@ -344,27 +348,38 @@ export const AddUserPage: React.FC = () => {
               )}
 
               {/* Password */}
-              <Input
-                label="Password *"
-                type="password"
-                placeholder="Set initial password"
-                value={formData.password}
-                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                error={errors.password}
-                icon={<Key className="w-4 h-4" />}
-                helperText={formData.sendEmailInvite ? 'Optional if instant email invitation is enabled' : undefined}
-              />
+              <div className="sm:col-span-2 space-y-1">
+                <Input
+                  label="Password *"
+                  type="password"
+                  placeholder="Set initial password"
+                  value={formData.password}
+                  onChange={(e) => {
+                    setFormData({ ...formData, password: e.target.value });
+                    if (errors.password) setErrors({ ...errors, password: undefined });
+                  }}
+                  error={errors.password}
+                  icon={<Key className="w-4 h-4" />}
+                  helperText={formData.sendEmailInvite ? 'Optional if instant email invitation is enabled' : undefined}
+                />
+                <PasswordStrengthValidator password={formData.password} />
+              </div>
 
               {/* Confirm Password */}
-              <Input
-                label="Confirm Password *"
-                type="password"
-                placeholder="Re-enter password"
-                value={formData.confirmPassword}
-                onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
-                error={errors.confirmPassword}
-                icon={<Key className="w-4 h-4" />}
-              />
+              <div className="sm:col-span-2">
+                <Input
+                  label="Confirm Password *"
+                  type="password"
+                  placeholder="Re-enter password"
+                  value={formData.confirmPassword}
+                  onChange={(e) => {
+                    setFormData({ ...formData, confirmPassword: e.target.value });
+                    if (errors.confirmPassword) setErrors({ ...errors, confirmPassword: undefined });
+                  }}
+                  error={errors.confirmPassword}
+                  icon={<Key className="w-4 h-4" />}
+                />
+              </div>
 
               {/* Additional User Details */}
               <div className="sm:col-span-2">

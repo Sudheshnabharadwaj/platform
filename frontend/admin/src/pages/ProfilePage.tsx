@@ -1,14 +1,102 @@
-import React, { useState, useRef } from 'react';
-import { User, ShieldCheck, Building2, Camera, Upload, Trash2 } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { User, ShieldCheck, Building2, Camera, Upload, Trash2, Edit3, Save, X, Mail, Phone } from 'lucide-react';
 import { Button } from '../components/ui/Button';
+import { Input } from '../components/ui/Input';
+import { Select } from '../components/ui/Select';
+
+export interface AdminProfileData {
+  name: string;
+  email: string;
+  role: string;
+  department: string;
+  phone: string;
+  avatarUrl?: string;
+}
+
+const DEFAULT_ADMIN_PROFILE: AdminProfileData = {
+  name: 'Hyma',
+  email: 'hyma.admin@company.com',
+  role: 'System Administrator',
+  department: 'IT Support',
+  phone: '+1 (555) 234-5678',
+  avatarUrl: localStorage.getItem('admin_profile_avatar') || '',
+};
+
+export function getAdminProfile(): AdminProfileData {
+  const cached = localStorage.getItem('admin_profile_data');
+  if (cached) {
+    try {
+      return JSON.parse(cached);
+    } catch {
+      return DEFAULT_ADMIN_PROFILE;
+    }
+  }
+  return DEFAULT_ADMIN_PROFILE;
+}
+
+export function saveAdminProfile(data: AdminProfileData) {
+  localStorage.setItem('admin_profile_data', JSON.stringify(data));
+  if (data.avatarUrl) {
+    localStorage.setItem('admin_profile_avatar', data.avatarUrl);
+  } else {
+    localStorage.removeItem('admin_profile_avatar');
+  }
+  window.dispatchEvent(new Event('storage'));
+}
 
 export const ProfilePage: React.FC = () => {
-  const [avatarUrl, setAvatarUrl] = useState<string>(
-    localStorage.getItem('admin_profile_avatar') || ''
-  );
-  const [showImageModal, setShowImageModal] = useState(false);
-  const [imageUrlInput, setImageUrlInput] = useState('');
+  const [profile, setProfile] = useState<AdminProfileData>(getAdminProfile());
+  const [isEditing, setIsEditing] = useState(false);
+
+  // Form edit state
+  const [editName, setEditName] = useState(profile.name);
+  const [editEmail, setEditEmail] = useState(profile.email);
+  const [editRole, setEditRole] = useState(profile.role);
+  const [editDepartment, setEditDepartment] = useState(profile.department);
+  const [editPhone, setEditPhone] = useState(profile.phone);
+  const [editAvatarUrl, setEditAvatarUrl] = useState(profile.avatarUrl || '');
+
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const p = getAdminProfile();
+    setProfile(p);
+    setEditName(p.name);
+    setEditEmail(p.email);
+    setEditRole(p.role);
+    setEditDepartment(p.department);
+    setEditPhone(p.phone);
+    setEditAvatarUrl(p.avatarUrl || '');
+  }, []);
+
+  const startEditing = () => {
+    setEditName(profile.name);
+    setEditEmail(profile.email);
+    setEditRole(profile.role);
+    setEditDepartment(profile.department);
+    setEditPhone(profile.phone);
+    setEditAvatarUrl(profile.avatarUrl || '');
+    setIsEditing(true);
+  };
+
+  const cancelEditing = () => {
+    setIsEditing(false);
+  };
+
+  const handleSaveProfile = (e: React.FormEvent) => {
+    e.preventDefault();
+    const updated: AdminProfileData = {
+      name: editName.trim() || profile.name,
+      email: editEmail.trim() || profile.email,
+      role: editRole.trim() || profile.role,
+      department: editDepartment.trim() || profile.department,
+      phone: editPhone.trim() || profile.phone,
+      avatarUrl: editAvatarUrl,
+    };
+    saveAdminProfile(updated);
+    setProfile(updated);
+    setIsEditing(false);
+  };
 
   const handleImageFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -16,72 +104,113 @@ export const ProfilePage: React.FC = () => {
       const reader = new FileReader();
       reader.onloadend = () => {
         const result = reader.result as string;
-        setAvatarUrl(result);
-        localStorage.setItem('admin_profile_avatar', result);
-        setShowImageModal(false);
+        if (isEditing) {
+          setEditAvatarUrl(result);
+        } else {
+          const updated = { ...profile, avatarUrl: result };
+          saveAdminProfile(updated);
+          setProfile(updated);
+          setEditAvatarUrl(result);
+        }
       };
       reader.readAsDataURL(file);
     }
   };
 
-  const handleSaveUrl = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!imageUrlInput.trim()) return;
-    setAvatarUrl(imageUrlInput.trim());
-    localStorage.setItem('admin_profile_avatar', imageUrlInput.trim());
-    setImageUrlInput('');
-    setShowImageModal(false);
-  };
-
-  const handleRemoveImage = () => {
-    setAvatarUrl('');
-    localStorage.removeItem('admin_profile_avatar');
-    setShowImageModal(false);
-  };
+  const displayAvatar = isEditing ? editAvatarUrl : profile.avatarUrl;
 
   return (
-    <div className="space-y-6 font-sans">
+    <div className="space-y-6 font-sans pb-12">
+      {/* Hidden File Input for Direct Local Image Selection */}
+      <input
+        type="file"
+        ref={fileInputRef}
+        accept="image/*"
+        onChange={handleImageFileChange}
+        className="hidden"
+      />
+
       {/* Page Header */}
-      <div>
-        <h1 className="text-xl font-bold text-slate-900 tracking-tight">My Profile</h1>
-        <p className="text-xs text-slate-500 mt-1">
-          View your administrative profile and department information.
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-xl font-bold text-slate-900 tracking-tight">My Profile</h1>
+          <p className="text-xs text-slate-500 mt-1">
+            Manage your administrative account, contact details, and department permissions.
+          </p>
+        </div>
+
+        {!isEditing ? (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={startEditing}
+            icon={<Edit3 className="w-4 h-4 text-[#0284C7]" />}
+            className="border-slate-200 text-slate-700 font-semibold"
+          >
+            Edit Profile
+          </Button>
+        ) : (
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={cancelEditing}
+              icon={<X className="w-4 h-4 text-slate-400" />}
+              className="border-slate-200 text-slate-600"
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={handleSaveProfile}
+              icon={<Save className="w-4 h-4" />}
+              className="bg-[#0284C7] hover:bg-[#0369a1] text-white font-semibold shadow-2xs"
+            >
+              Save Changes
+            </Button>
+          </div>
+        )}
       </div>
 
-      {/* Main Profile Card - Clean theme, no dark strip, image support */}
-      <div className="max-w-2xl bg-white border border-slate-200/80 rounded-2xl p-6 sm:p-8 shadow-2xs space-y-6">
+      {/* Main Profile Card */}
+      <div className="max-w-3xl bg-white border border-slate-200/80 rounded-2xl p-6 sm:p-8 shadow-2xs space-y-6">
         {/* User Identity Header with Profile Avatar Support */}
         <div className="flex items-center justify-between pb-6 border-b border-slate-100 flex-wrap gap-4">
           <div className="flex items-center gap-4">
             <div className="relative group shrink-0">
-              {avatarUrl ? (
+              {displayAvatar ? (
                 <img
-                  src={avatarUrl}
-                  alt="Hyma"
-                  className="w-16 h-16 rounded-2xl object-cover border-2 border-slate-200 shadow-2xs"
+                  src={displayAvatar}
+                  alt={profile.name}
+                  className="w-20 h-20 rounded-2xl object-cover border-2 border-slate-200 shadow-2xs"
                 />
               ) : (
-                <div className="w-16 h-16 rounded-2xl bg-[#0284C7] text-white flex items-center justify-center font-bold text-xl shadow-xs shrink-0">
-                  H
+                <div className="w-20 h-20 rounded-2xl bg-[#0284C7] text-white flex items-center justify-center font-bold text-2xl shadow-xs shrink-0">
+                  {(isEditing ? editName : profile.name)
+                    .split(' ')
+                    .map((n) => n[0])
+                    .join('')}
                 </div>
               )}
 
               <button
                 type="button"
-                onClick={() => setShowImageModal(true)}
+                onClick={() => fileInputRef.current?.click()}
                 className="absolute -bottom-1 -right-1 p-1.5 rounded-full bg-white border border-slate-200 text-slate-700 hover:text-[#0284C7] hover:border-[#0284C7] shadow-xs cursor-pointer transition-all"
-                title="Change profile image"
+                title="Upload profile photo from computer"
               >
-                <Camera className="w-3.5 h-3.5" />
+                <Camera className="w-4 h-4 text-[#0284C7]" />
               </button>
             </div>
 
             <div>
-              <h2 className="text-lg font-bold text-slate-900">Hyma</h2>
+              <h2 className="text-lg font-bold text-slate-900">
+                {isEditing ? editName || 'Admin Name' : profile.name}
+              </h2>
               <div className="flex items-center gap-2 mt-1">
                 <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-sky-50 text-[#0284C7] border border-sky-200/60 uppercase">
-                  <ShieldCheck className="w-3.5 h-3.5 inline" /> Admin
+                  <ShieldCheck className="w-3.5 h-3.5 inline" /> {isEditing ? editRole : profile.role}
                 </span>
               </div>
             </div>
@@ -90,138 +219,134 @@ export const ProfilePage: React.FC = () => {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => setShowImageModal(true)}
+            onClick={() => fileInputRef.current?.click()}
             className="border-slate-200 text-slate-700 hover:bg-slate-50 text-xs font-semibold"
           >
-            <Camera className="w-3.5 h-3.5 mr-1.5 text-[#0284C7]" />
-            Change Image
+            <Upload className="w-3.5 h-3.5 mr-1.5 text-[#0284C7]" />
+            Upload Photo from Computer
           </Button>
         </div>
 
-        {/* Profile Attributes List - Name, Role, Department */}
-        <div className="space-y-3.5">
-          <div className="flex items-center justify-between py-3 px-4 rounded-xl bg-slate-50/70 border border-slate-100">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-white text-[#0284C7] border border-slate-200/60">
-                <User className="w-4 h-4" />
-              </div>
-              <span className="text-xs font-semibold text-slate-500">Name</span>
-            </div>
-            <span className="text-sm font-bold text-slate-900">Hyma</span>
-          </div>
-
-          <div className="flex items-center justify-between py-3 px-4 rounded-xl bg-slate-50/70 border border-slate-100">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-white text-[#0284C7] border border-slate-200/60">
-                <ShieldCheck className="w-4 h-4" />
-              </div>
-              <span className="text-xs font-semibold text-slate-500">Role</span>
-            </div>
-            <span className="text-sm font-bold text-slate-900">Admin</span>
-          </div>
-
-          <div className="flex items-center justify-between py-3 px-4 rounded-xl bg-slate-50/70 border border-slate-100">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-white text-[#0284C7] border border-slate-200/60">
-                <Building2 className="w-4 h-4" />
-              </div>
-              <span className="text-xs font-semibold text-slate-500">Department</span>
-            </div>
-            <span className="text-sm font-bold text-slate-900">IT Support</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Change Profile Image Modal */}
-      {showImageModal && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl max-w-md w-full p-6 font-sans">
-            <h3 className="text-base font-bold text-slate-900 mb-1">Update Profile Image</h3>
-            <p className="text-xs text-slate-500 mb-4">
-              Upload a photo from your computer or enter an image URL.
-            </p>
-
-            <div className="space-y-4">
-              {/* File Upload Option */}
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                  Upload Local Image File
-                </label>
-                <input
-                  type="file"
-                  ref={fileInputRef}
-                  accept="image/*"
-                  onChange={handleImageFileChange}
-                  className="hidden"
+        {/* Profile Attributes / Edit Form */}
+        <form onSubmit={handleSaveProfile} className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1 flex items-center gap-1.5">
+                <User className="w-3.5 h-3.5 text-slate-400" /> Full Name <span className="text-red-500">*</span>
+              </label>
+              {isEditing ? (
+                <Input
+                  required
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  placeholder="Enter full name"
                 />
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => fileInputRef.current?.click()}
-                  className="w-full border-dashed border-2 border-slate-300 hover:border-[#0284C7] text-slate-700 py-3 font-semibold"
-                >
-                  <Upload className="w-4 h-4 mr-2 text-[#0284C7]" />
-                  Select Image File
-                </Button>
-              </div>
-
-              <div className="flex items-center gap-3 my-2">
-                <div className="h-px bg-slate-200 flex-1" />
-                <span className="text-[10px] font-bold text-slate-400 uppercase">OR</span>
-                <div className="h-px bg-slate-200 flex-1" />
-              </div>
-
-              {/* URL Input Option */}
-              <form onSubmit={handleSaveUrl} className="space-y-3">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                    Paste Image URL
-                  </label>
-                  <input
-                    type="url"
-                    placeholder="https://example.com/avatar.jpg"
-                    value={imageUrlInput}
-                    onChange={(e) => setImageUrlInput(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 focus:outline-none focus:border-[#0284C7]"
-                  />
+              ) : (
+                <div className="p-3 rounded-xl bg-slate-50 border border-slate-100 text-xs font-bold text-slate-900">
+                  {profile.name}
                 </div>
+              )}
+            </div>
 
-                <div className="flex items-center justify-between pt-2">
-                  {avatarUrl ? (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      onClick={handleRemoveImage}
-                      className="text-red-600 hover:bg-red-50 text-xs font-semibold"
-                    >
-                      <Trash2 className="w-3.5 h-3.5 mr-1" /> Remove Image
-                    </Button>
-                  ) : <div />}
-
-                  <div className="flex items-center gap-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => setShowImageModal(false)}
-                      className="border-slate-200 text-slate-600"
-                    >
-                      Cancel
-                    </Button>
-                    <Button
-                      type="submit"
-                      variant="primary"
-                      disabled={!imageUrlInput.trim()}
-                      className="bg-[#0284C7] text-white"
-                    >
-                      Save Image URL
-                    </Button>
-                  </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1 flex items-center gap-1.5">
+                <Mail className="w-3.5 h-3.5 text-slate-400" /> Email Address <span className="text-red-500">*</span>
+              </label>
+              {isEditing ? (
+                <Input
+                  type="email"
+                  required
+                  value={editEmail}
+                  onChange={(e) => setEditEmail(e.target.value)}
+                  placeholder="Enter email address"
+                />
+              ) : (
+                <div className="p-3 rounded-xl bg-slate-50 border border-slate-100 text-xs font-semibold text-slate-900">
+                  {profile.email}
                 </div>
-              </form>
+              )}
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1 flex items-center gap-1.5">
+                <Building2 className="w-3.5 h-3.5 text-slate-400" /> Department <span className="text-red-500">*</span>
+              </label>
+              {isEditing ? (
+                <Select
+                  value={editDepartment}
+                  onChange={(e) => setEditDepartment(e.target.value)}
+                  options={[
+                    { value: 'IT Support', label: 'IT Support' },
+                    { value: 'Finance', label: 'Finance' },
+                    { value: 'HR Operations', label: 'HR Operations' },
+                    { value: 'Facilities', label: 'Facilities' },
+                    { value: 'General Administration', label: 'General Administration' },
+                  ]}
+                />
+              ) : (
+                <div className="p-3 rounded-xl bg-slate-50 border border-slate-100 text-xs font-bold text-slate-900">
+                  {profile.department}
+                </div>
+              )}
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1 flex items-center gap-1.5">
+                <ShieldCheck className="w-3.5 h-3.5 text-slate-400" /> Administrative Role <span className="text-red-500">*</span>
+              </label>
+              {isEditing ? (
+                <Input
+                  value={editRole}
+                  onChange={(e) => setEditRole(e.target.value)}
+                  placeholder="Enter role (e.g. System Administrator)"
+                />
+              ) : (
+                <div className="p-3 rounded-xl bg-slate-50 border border-slate-100 text-xs font-bold text-slate-900">
+                  {profile.role}
+                </div>
+              )}
+            </div>
+
+            <div className="sm:col-span-2">
+              <label className="block text-xs font-bold text-slate-700 mb-1 flex items-center gap-1.5">
+                <Phone className="w-3.5 h-3.5 text-slate-400" /> Contact Number
+              </label>
+              {isEditing ? (
+                <Input
+                  type="tel"
+                  value={editPhone}
+                  onChange={(e) => setEditPhone(e.target.value)}
+                  placeholder="Enter contact number"
+                />
+              ) : (
+                <div className="p-3 rounded-xl bg-slate-50 border border-slate-100 text-xs font-semibold text-slate-900">
+                  {profile.phone}
+                </div>
+              )}
             </div>
           </div>
-        </div>
-      )}
+
+          {isEditing && (
+            <div className="flex items-center justify-end gap-2 pt-4 border-t border-slate-100">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={cancelEditing}
+                className="border-slate-200 text-slate-600"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                variant="primary"
+                className="bg-[#0284C7] hover:bg-[#0369a1] text-white font-semibold shadow-2xs"
+              >
+                <Save className="w-4 h-4 mr-1.5" /> Save Changes
+              </Button>
+            </div>
+          )}
+        </form>
+      </div>
     </div>
   );
 };

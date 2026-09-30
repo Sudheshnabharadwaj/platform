@@ -8,6 +8,8 @@ import { Select } from '../components/ui/Select';
 import { Table, type Column } from '../components/ui/Table';
 import type { Ticket, DashboardStats } from '../types';
 import { AdminApiService } from '../services/api';
+import { AttachmentFilePicker, type AttachedFile } from '../components/ui/AttachmentFilePicker';
+import { TeamLeadSelector, type TeamLeadOption } from '../components/ui/TeamLeadSelector';
 import {
   Ticket as TicketIcon,
   AlertTriangle,
@@ -29,28 +31,6 @@ const DEPARTMENT_OPTIONS = [
   'Other',
 ];
 
-const TEAM_LEAD_MAP: Record<string, { name: string; role: string }> = {
-  'IT Support': { name: 'Sarah Connor', role: 'IT Support Team Lead' },
-  'Finance': { name: 'David Miller', role: 'Finance Team Lead' },
-  'HR Operations': { name: 'Adi', role: 'HR Operations Team Lead' },
-  'Facilities': { name: 'Mounika', role: 'Facilities Team Lead' },
-  'General Administration': { name: 'Sudha', role: 'General Administration Team Lead' },
-};
-
-function resolveTeamLead(dept: string) {
-  const norm = dept.trim();
-  if (TEAM_LEAD_MAP[norm]) return { dept: norm, ...TEAM_LEAD_MAP[norm] };
-
-  // Fallbacks for common aliases
-  if (norm.toLowerCase().includes('it')) return { dept: norm, name: 'Sarah Connor', role: 'IT Support Team Lead' };
-  if (norm.toLowerCase().includes('finance')) return { dept: norm, name: 'David Miller', role: 'Finance Team Lead' };
-  if (norm.toLowerCase().includes('hr')) return { dept: norm, name: 'Adi', role: 'HR Operations Team Lead' };
-  if (norm.toLowerCase().includes('facil')) return { dept: norm, name: 'Mounika', role: 'Facilities Team Lead' };
-  if (norm.toLowerCase().includes('admin')) return { dept: norm, name: 'Sudha', role: 'General Administration Team Lead' };
-
-  return { dept: norm, name: `${norm} Team Lead`, role: `${norm} Team Lead` };
-}
-
 export const DashboardPage: React.FC = () => {
   const navigate = useNavigate();
   const [stats, setStats] = useState<DashboardStats | null>(null);
@@ -68,6 +48,9 @@ export const DashboardPage: React.FC = () => {
   const [customDepartment, setCustomDepartment] = useState('');
   const [newPriority, setNewPriority] = useState('Medium');
   const [newDescription, setNewDescription] = useState('');
+  const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([]);
+  const [selectedTeamLeadIds, setSelectedTeamLeadIds] = useState<string[]>([]);
+  const [selectedTeamLeadObjs, setSelectedTeamLeadObjs] = useState<TeamLeadOption[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const toggleDepartment = (deptName: string) => {
@@ -85,8 +68,6 @@ export const DashboardPage: React.FC = () => {
   const activeDepartments = selectedDepartments.map((dept) =>
     dept === 'Other' ? (customDepartment.trim() || 'Other Department') : dept
   );
-
-  const autoIdentifiedLeads = activeDepartments.map((dept) => resolveTeamLead(dept));
 
   const loadData = async () => {
     setIsLoading(true);
@@ -111,13 +92,22 @@ export const DashboardPage: React.FC = () => {
     );
     const mainDepartmentStr = finalDepartments.join(' & ');
 
+    const teamLeadSummary = selectedTeamLeadObjs.length > 0
+      ? selectedTeamLeadObjs.map((tl) => `${tl.name} (${tl.role})`).join(', ')
+      : 'Sarah Connor (IT Support Team Lead)';
+
+    const attachmentStrings = attachedFiles.map((f) => `${f.name} (${f.size})`);
+
     setIsSubmitting(true);
     await AdminApiService.createTicket({
       title: newTitle.trim(),
       category: finalCategory,
       department: mainDepartmentStr,
+      departments: finalDepartments,
       priority: newPriority,
       description: newDescription.trim(),
+      attachments: attachmentStrings,
+      assignedTeamLead: teamLeadSummary,
     });
 
     setIsSubmitting(false);
@@ -128,6 +118,9 @@ export const DashboardPage: React.FC = () => {
     setCustomCategory('');
     setSelectedDepartments(['IT Support']);
     setCustomDepartment('');
+    setAttachedFiles([]);
+    setSelectedTeamLeadIds([]);
+    setSelectedTeamLeadObjs([]);
 
     // Navigate to My Tickets page to see the newly created ticket
     navigate('/admin/workspace/my-tickets');
@@ -421,24 +414,17 @@ export const DashboardPage: React.FC = () => {
                     />
                   </div>
                 )}
-
-                {/* Real-time Ticket Routing Box */}
-                <div className="mt-3 bg-white border border-sky-200/90 rounded-xl p-3 space-y-1.5 shadow-2xs">
-                  <div className="text-[11px] font-bold text-[#0284C7] uppercase tracking-wider">
-                    Ticket Routing
-                  </div>
-                  <div className="space-y-1">
-                    {autoIdentifiedLeads.map((tl, idx) => (
-                      <div key={idx} className="text-xs font-medium text-slate-700 flex items-center gap-2">
-                        <span className="font-semibold text-slate-900">{tl.dept}</span>
-                        <ArrowRight className="w-3 h-3 text-slate-400" />
-                        <span className="font-bold text-[#0284C7]">{tl.name}</span>
-                        <span className="text-[10px] text-slate-400">({tl.role})</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
               </div>
+
+              {/* Team Lead Selection Component */}
+              <TeamLeadSelector
+                selectedDepartments={activeDepartments}
+                selectedTeamLeadIds={selectedTeamLeadIds}
+                onSelectedTeamLeadsChange={(ids, objs) => {
+                  setSelectedTeamLeadIds(ids);
+                  setSelectedTeamLeadObjs(objs);
+                }}
+              />
 
               {/* Category Field */}
               <div>
@@ -501,6 +487,14 @@ export const DashboardPage: React.FC = () => {
                   className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs text-slate-800 focus:outline-none focus:border-[#0284C7]"
                 />
               </div>
+
+              {/* Attachment File Picker */}
+              <AttachmentFilePicker
+                files={attachedFiles}
+                onFilesChange={setAttachedFiles}
+                label="Attachments (Optional)"
+                buttonText="Browse Local Computer Files"
+              />
 
               <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
                 <Button

@@ -22,6 +22,7 @@ import type { Ticket, TicketStatus, TicketPriority } from '../../types';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { Select } from '../../components/ui/Select';
+import { AttachmentFilePicker, type AttachedFile } from '../../components/ui/AttachmentFilePicker';
 
 const TEAM_LEAD_MAP: Record<string, string> = {
   'IT Support': 'Sarah Connor (IT Support Team Lead)',
@@ -55,14 +56,14 @@ export const AdminTicketDetailsPage: React.FC = () => {
   const [ticket, setTicket] = useState<Ticket | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [newComment, setNewComment] = useState('');
-  const [commentFile, setCommentFile] = useState<string>('');
+  const [commentAttachedFiles, setCommentAttachedFiles] = useState<AttachedFile[]>([]);
 
   const [showStatusModal, setShowStatusModal] = useState(false);
   const [selectedStatus, setSelectedStatus] = useState<TicketStatus>('In Progress');
   const [statusNote, setStatusNote] = useState('');
 
   const [showAttachModal, setShowAttachModal] = useState(false);
-  const [attachmentFileName, setAttachmentFileName] = useState('');
+  const [modalAttachedFiles, setModalAttachedFiles] = useState<AttachedFile[]>([]);
 
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
@@ -138,24 +139,29 @@ export const AdminTicketDetailsPage: React.FC = () => {
   const handleAddCommentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!id || !newComment.trim()) return;
-    const updated = await AdminApiService.addComment(id, newComment.trim(), commentFile.trim() || undefined);
+    const attachmentStr = commentAttachedFiles.map((f) => `${f.name} (${f.size})`).join(', ');
+    const updated = await AdminApiService.addComment(id, newComment.trim(), attachmentStr || undefined);
     if (updated) {
       setTicket({ ...updated });
       setNewComment('');
-      setCommentFile('');
+      setCommentAttachedFiles([]);
       setToastMessage('Comment posted successfully.');
     }
   };
 
   const handleAddAttachmentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!id || !attachmentFileName.trim()) return;
-    const updated = await AdminApiService.addAttachment(id, attachmentFileName.trim());
-    if (updated) {
-      setTicket({ ...updated });
-      setAttachmentFileName('');
+    if (!id || modalAttachedFiles.length === 0) return;
+    let updatedTicket = ticket;
+    for (const f of modalAttachedFiles) {
+      const fileNameStr = `${f.name} (${f.size})`;
+      updatedTicket = await AdminApiService.addAttachment(id, fileNameStr);
+    }
+    if (updatedTicket) {
+      setTicket({ ...updatedTicket });
+      setModalAttachedFiles([]);
       setShowAttachModal(false);
-      setToastMessage('Attachment uploaded and logged.');
+      setToastMessage(`${modalAttachedFiles.length} file(s) attached successfully.`);
     }
   };
 
@@ -432,14 +438,14 @@ export const AdminTicketDetailsPage: React.FC = () => {
             placeholder="Type your comment or update here..."
             className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-[#0284C7] focus:ring-2 focus:ring-[#0284C7]/20"
           />
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <input
-              type="text"
-              placeholder="Optional attachment filename (e.g. log.txt)"
-              value={commentFile}
-              onChange={(e) => setCommentFile(e.target.value)}
-              className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5 text-xs text-slate-700 w-full sm:w-64"
-            />
+          <AttachmentFilePicker
+            files={commentAttachedFiles}
+            onFilesChange={setCommentAttachedFiles}
+            label=""
+            buttonText="Attach Local File to Comment"
+            compact
+          />
+          <div className="flex justify-end pt-1">
             <Button
               type="submit"
               variant="primary"
@@ -513,23 +519,21 @@ export const AdminTicketDetailsPage: React.FC = () => {
           <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl max-w-md w-full p-6 font-sans space-y-4">
             <h3 className="text-base font-bold text-slate-900">Upload Attachment</h3>
             <form onSubmit={handleAddAttachmentSubmit} className="space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Filename / Asset Label</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. error_log.txt"
-                  value={attachmentFileName}
-                  onChange={(e) => setAttachmentFileName(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 focus:outline-none focus:border-[#0284C7]"
-                />
-              </div>
+              <AttachmentFilePicker
+                files={modalAttachedFiles}
+                onFilesChange={setModalAttachedFiles}
+                label="Select Local Computer Files"
+                buttonText="Browse Files from PC"
+              />
 
-              <div className="flex items-center justify-end gap-2 pt-2">
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={() => setShowAttachModal(false)}
+                  onClick={() => {
+                    setShowAttachModal(false);
+                    setModalAttachedFiles([]);
+                  }}
                   className="border-slate-200 text-slate-600"
                 >
                   Cancel
@@ -537,10 +541,10 @@ export const AdminTicketDetailsPage: React.FC = () => {
                 <Button
                   type="submit"
                   variant="primary"
-                  disabled={!attachmentFileName.trim()}
-                  className="bg-[#0284C7] text-white"
+                  disabled={modalAttachedFiles.length === 0}
+                  className="bg-[#0284C7] text-white font-semibold"
                 >
-                  Attach File
+                  Upload Attachments
                 </Button>
               </div>
             </form>

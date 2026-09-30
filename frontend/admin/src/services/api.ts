@@ -294,8 +294,11 @@ export const AdminApiService = {
     title: string;
     category: string;
     department: any;
+    departments?: string[];
     priority: any;
     description: string;
+    attachments?: string[];
+    assignedTeamLead?: string;
   }): Promise<Ticket> {
     return new Promise((resolve) => {
       const tickets = getStoredTickets();
@@ -311,8 +314,9 @@ export const AdminApiService = {
         requesterName: 'Hyma (Admin)',
         requesterEmail: 'hyma@company.com',
         assignedTo: 'Hyma',
-        assignedTeamLead: 'Sarah Connor (IT Support Team Lead)',
+        assignedTeamLead: data.assignedTeamLead || 'Sarah Connor (IT Support Team Lead)',
         department: data.department || 'IT Support',
+        departments: data.departments,
         category: data.category || 'General Support',
         priority: data.priority || 'Medium',
         status: 'Open',
@@ -320,12 +324,18 @@ export const AdminApiService = {
         createdAt: formatted,
         updatedAt: formatted,
         dueDate: formatted,
-        attachments: [],
+        attachments: data.attachments || [],
         history: [
           {
             id: `h-${Date.now()}-1`,
             author: 'Hyma (Admin)',
-            text: 'Ticket submitted.',
+            text: 'Ticket created.',
+            timestamp: formatted,
+          },
+          {
+            id: `h-${Date.now()}-2`,
+            author: 'System Routing Engine',
+            text: `Routed to Team Lead(s): ${data.assignedTeamLead || 'Sarah Connor'}`,
             timestamp: formatted,
           },
         ],
