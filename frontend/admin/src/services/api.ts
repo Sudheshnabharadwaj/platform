@@ -1,9 +1,10 @@
-import type { User, Ticket, DashboardStats, AddUserFormData } from '../types';
+import type { User, Ticket, DashboardStats, AddUserFormData, TicketHistoryItem } from '../types';
 
 // Initial Mock Users Data
 export const mockUsers: User[] = [
   {
     id: 'usr-1',
+    employeeId: 'ADM001',
     name: 'Hyma',
     email: 'hyma@company.com',
     phone: '+1 (555) 019-2834',
@@ -15,6 +16,7 @@ export const mockUsers: User[] = [
   },
   {
     id: 'usr-2',
+    employeeId: 'TL001',
     name: 'Manikanta',
     email: 'manikanta@company.com',
     phone: '+1 (555) 014-9921',
@@ -26,6 +28,7 @@ export const mockUsers: User[] = [
   },
   {
     id: 'usr-3',
+    employeeId: 'TL005',
     name: 'Adi',
     email: 'adi@company.com',
     phone: '+1 (555) 018-3342',
@@ -37,44 +40,51 @@ export const mockUsers: User[] = [
   },
   {
     id: 'usr-4',
+    employeeId: 'EMP004',
     name: 'Sudha',
     email: 'sudha@company.com',
     phone: '+1 (555) 012-7744',
     department: 'Finance',
     role: 'Employee',
+    teamLead: 'David Miller (TL003)',
     status: 'Active',
     avatarUrl: '',
     createdAt: '2026-04-12'
   },
   {
     id: 'usr-5',
+    employeeId: 'EMP005',
     name: 'Mounika',
     email: 'mounika@company.com',
     phone: '+1 (555) 016-5589',
     department: 'Operations',
     role: 'Employee',
+    teamLead: 'Mounika (Ops Lead)',
     status: 'Active',
     avatarUrl: '',
     createdAt: '2026-09-20'
   },
   {
     id: 'usr-6',
+    employeeId: 'EMP001',
     name: 'Kotesh',
     email: 'kotesh@company.com',
     phone: '+1 (555) 017-8899',
     department: 'IT Support',
     role: 'Employee',
+    teamLead: 'Sarah Connor (TL001)',
     status: 'Active',
     avatarUrl: '',
     createdAt: '2026-08-14'
   },
   {
     id: 'usr-7',
+    employeeId: 'TL008',
     name: 'Uday',
     email: 'uday@company.com',
     phone: '+1 (555) 013-4411',
     department: 'Facilities',
-    role: 'Employee',
+    role: 'Team Lead',
     status: 'Active',
     avatarUrl: '',
     createdAt: '2026-07-02'
@@ -241,14 +251,25 @@ export const AdminApiService = {
   },
 
   async addUser(data: AddUserFormData): Promise<User> {
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
+      const cleanEmpId = data.employeeId.trim().toUpperCase();
+      const duplicate = mockUsers.some(
+        (u) => u.employeeId?.toUpperCase() === cleanEmpId
+      );
+      if (duplicate) {
+        reject(new Error('Employee ID already exists.'));
+        return;
+      }
+
       const newUser: User = {
         id: `usr-${Date.now()}`,
+        employeeId: cleanEmpId,
         name: data.name,
         email: data.email,
         phone: data.phone,
         department: data.department,
         role: data.role,
+        teamLead: data.teamLead,
         status: data.sendEmailInvite ? 'Pending Invitation' : 'Active',
         createdAt: new Date().toISOString().split('T')[0]
       };
@@ -299,12 +320,46 @@ export const AdminApiService = {
     description: string;
     attachments?: string[];
     assignedTeamLead?: string;
+    teamLeads?: { id: string; name: string; role: string; employeeId: string; email: string }[];
+    employees?: { id: string; name: string; role: string; employeeId: string; email: string }[];
   }): Promise<Ticket> {
     return new Promise((resolve) => {
       const tickets = getStoredTickets();
       const now = new Date();
       const formatted = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
       const nextNum = 1001 + tickets.length;
+
+      const teamLeadSummary = data.teamLeads && data.teamLeads.length > 0
+        ? data.teamLeads.map((tl) => `${tl.name} (${tl.role})`).join(', ')
+        : data.assignedTeamLead || 'Sarah Connor (IT Support Team Lead)';
+
+      const employeeSummary = data.employees && data.employees.length > 0
+        ? data.employees.map((emp) => `${emp.name} (${emp.employeeId})`).join(', ')
+        : 'Unassigned';
+
+      const historyEntries: TicketHistoryItem[] = [
+        {
+          id: `h-${Date.now()}-1`,
+          author: 'Hyma (Admin)',
+          text: 'Ticket created.',
+          timestamp: formatted,
+        },
+        {
+          id: `h-${Date.now()}-2`,
+          author: 'System Routing Engine',
+          text: `Routed to Team Lead(s): ${teamLeadSummary}`,
+          timestamp: formatted,
+        },
+      ];
+
+      if (data.employees && data.employees.length > 0) {
+        historyEntries.push({
+          id: `h-${Date.now()}-3`,
+          author: 'System Routing Engine',
+          text: `Assigned / Tagged Employee(s): ${employeeSummary}`,
+          timestamp: formatted,
+        });
+      }
 
       const newTicket: Ticket = {
         id: `t-${Date.now()}`,
@@ -313,8 +368,8 @@ export const AdminApiService = {
         description: data.description,
         requesterName: 'Hyma (Admin)',
         requesterEmail: 'hyma@company.com',
-        assignedTo: 'Hyma',
-        assignedTeamLead: data.assignedTeamLead || 'Sarah Connor (IT Support Team Lead)',
+        assignedTo: employeeSummary !== 'Unassigned' ? employeeSummary : 'Hyma',
+        assignedTeamLead: teamLeadSummary,
         department: data.department || 'IT Support',
         departments: data.departments,
         category: data.category || 'General Support',
@@ -325,20 +380,9 @@ export const AdminApiService = {
         updatedAt: formatted,
         dueDate: formatted,
         attachments: data.attachments || [],
-        history: [
-          {
-            id: `h-${Date.now()}-1`,
-            author: 'Hyma (Admin)',
-            text: 'Ticket created.',
-            timestamp: formatted,
-          },
-          {
-            id: `h-${Date.now()}-2`,
-            author: 'System Routing Engine',
-            text: `Routed to Team Lead(s): ${data.assignedTeamLead || 'Sarah Connor'}`,
-            timestamp: formatted,
-          },
-        ],
+        teamLeads: data.teamLeads,
+        employees: data.employees,
+        history: historyEntries,
       };
 
       const updatedList = [newTicket, ...tickets];

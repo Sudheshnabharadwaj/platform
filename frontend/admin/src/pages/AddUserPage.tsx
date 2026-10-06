@@ -8,6 +8,7 @@ import { Badge } from '../components/ui/Badge';
 import { PasswordStrengthValidator, validatePassword } from '../components/ui/PasswordStrengthValidator';
 import type { UserRole, UserDepartment } from '../types';
 import { AdminApiService } from '../services/api';
+import { OrganizationService } from '../services/organizationService';
 import {
   UserPlus,
   Mail,
@@ -20,22 +21,15 @@ import {
   UserCheck,
   ArrowLeft,
   Info,
-  Building2
+  Building2,
+  BadgeCheck
 } from 'lucide-react';
-
-const mockTeamLeadsByDept: Record<string, string[]> = {
-  'IT Support': ['Manikanta (IT Lead)', 'Hyma (IT Lead)'],
-  'HR': ['Adi (HR Lead)', 'Sudha (HR Lead)'],
-  'Finance': ['Kotesh (Finance Lead)'],
-  'Operations': ['Mounika (Ops Lead)'],
-  'Facilities': ['Uday (Facilities Lead)'],
-  'Others': ['General Department Lead'],
-};
 
 export const AddUserPage: React.FC = () => {
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
     name: '',
+    employeeId: '',
     email: '',
     phone: '',
     department: '' as string,
@@ -59,6 +53,15 @@ export const AddUserPage: React.FC = () => {
 
     if (!formData.name.trim()) {
       newErrors.name = 'Full Name is required';
+    }
+
+    if (!formData.employeeId.trim()) {
+      newErrors.employeeId = 'Employee ID is required';
+    } else {
+      const cleanEmpId = formData.employeeId.trim().toUpperCase();
+      if (OrganizationService.isEmployeeIdTaken(cleanEmpId)) {
+        newErrors.employeeId = 'Employee ID already exists.';
+      }
     }
 
     if (!formData.email.trim()) {
@@ -110,24 +113,54 @@ export const AddUserPage: React.FC = () => {
 
     setIsSubmitting(true);
     const finalDepartment = formData.department === 'Others' ? formData.customDepartment : formData.department;
+    const cleanEmpId = formData.employeeId.trim().toUpperCase();
 
     try {
       await AdminApiService.addUser({
-        name: formData.name,
-        email: formData.email,
-        phone: formData.phone,
+        name: formData.name.trim(),
+        employeeId: cleanEmpId,
+        email: formData.email.trim(),
+        phone: formData.phone.trim(),
         department: finalDepartment as UserDepartment,
         role: formData.role as UserRole,
+        teamLead: formData.role === 'Employee' ? formData.teamLead : undefined,
         password: formData.password,
         userDetails: formData.userDetails,
         sendEmailInvite: formData.sendEmailInvite
       });
 
+      // Synchronize with OrganizationService layer
+      if (formData.role === 'Team Lead') {
+        OrganizationService.addTeamLead({
+          id: cleanEmpId,
+          employeeId: cleanEmpId,
+          name: formData.name.trim(),
+          role: `${finalDepartment} Team Lead`,
+          departmentId: 'D-NEW',
+          departmentName: finalDepartment,
+          email: formData.email.trim()
+        });
+      } else if (formData.role === 'Employee') {
+        OrganizationService.addEmployee({
+          id: cleanEmpId,
+          employeeId: cleanEmpId,
+          name: formData.name.trim(),
+          role: 'Team Member',
+          teamLeadId: formData.teamLead,
+          departmentId: 'D-NEW',
+          departmentName: finalDepartment,
+          email: formData.email.trim()
+        });
+      }
+
       const inviteToken = Math.random().toString(36).substring(2, 10);
       setShareableLink(`https://ticketing.company.com/invite?token=${inviteToken}&email=${encodeURIComponent(formData.email)}`);
       setIsSuccess(true);
-    } catch (err) {
-      console.error('Failed to create user:', err);
+    } catch (err: any) {
+      setErrors((prev) => ({
+        ...prev,
+        employeeId: err?.message || 'Employee ID already exists.'
+      }));
     } finally {
       setIsSubmitting(false);
     }
@@ -142,6 +175,7 @@ export const AddUserPage: React.FC = () => {
   const resetForm = () => {
     setFormData({
       name: '',
+      employeeId: '',
       email: '',
       phone: '',
       department: '',
@@ -157,8 +191,11 @@ export const AddUserPage: React.FC = () => {
     setIsSuccess(false);
   };
 
-  const currentDepartmentKey = formData.department || 'Others';
-  const availableTeamLeads = mockTeamLeadsByDept[currentDepartmentKey] || ['Department Team Lead'];
+  const currentDepartmentName = formData.department === 'Others'
+    ? (formData.customDepartment.trim() || 'Other')
+    : (formData.department || 'IT Support');
+
+  const availableTeamLeads = OrganizationService.getTeamLeadsByDepartment(currentDepartmentName);
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
@@ -247,6 +284,20 @@ export const AddUserPage: React.FC = () => {
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 error={errors.name}
                 icon={<UserPlus className="w-4 h-4" />}
+              />
+
+              {/* Employee ID */}
+              <Input
+                label="Employee ID *"
+                placeholder="e.g. TL001 or EMP001"
+                value={formData.employeeId}
+                onChange={(e) => {
+                  setFormData({ ...formData, employeeId: e.target.value.toUpperCase() });
+                  if (errors.employeeId) setErrors({ ...errors, employeeId: undefined });
+                }}
+                error={errors.employeeId}
+                icon={<BadgeCheck className="w-4 h-4" />}
+                helperText="Unique ID (e.g. TL001 for Team Lead, EMP001 for Employee)"
               />
 
               {/* Email */}
@@ -342,7 +393,10 @@ export const AddUserPage: React.FC = () => {
                   error={errors.teamLead}
                   options={[
                     { value: '', label: 'Select Team Lead', disabled: true, hidden: true },
-                    ...availableTeamLeads.map(tl => ({ value: tl, label: tl }))
+                    ...availableTeamLeads.map((tl) => ({
+                      value: `${tl.name} (${tl.employeeId})`,
+                      label: `${tl.name} — ${tl.employeeId} (${tl.role})`,
+                    })),
                   ]}
                 />
               )}

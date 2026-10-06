@@ -3,13 +3,13 @@ import { User } from '../types/user';
 export const mockUsers: User[] = [
   {
     id: "TL001",
-    name: "Alex Morgan",
-    email: "teamlead@ticketing.com",
+    name: "Sarah Connor",
+    email: "sarah.connor@company.com",
     phone: "9876543210",
     role: "teamlead",
     department: "IT Support",
-    designation: "Senior IT Support Lead",
-    team: "L2 Support & Escalations",
+    designation: "IT Support Team Lead",
+    team: "IT Support & Operations",
     avatar: "",
     location: "San Francisco HQ - Floor 4",
     status: "Active"

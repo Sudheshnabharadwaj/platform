@@ -7,18 +7,13 @@ import {
   Users,
   Paperclip,
   Send,
-  CheckCircle2,
   FileText,
-  Upload,
   Activity,
   AlertCircle,
-  AlertTriangle,
-  CheckCircle,
-  Mail,
-  ShieldAlert
+  CheckCircle
 } from 'lucide-react';
 import { AdminApiService } from '../../services/api';
-import type { Ticket, TicketStatus, TicketPriority } from '../../types';
+import type { Ticket, TicketStatus } from '../../types';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { Select } from '../../components/ui/Select';
@@ -152,7 +147,7 @@ export const AdminTicketDetailsPage: React.FC = () => {
   const handleAddAttachmentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!id || modalAttachedFiles.length === 0) return;
-    let updatedTicket = ticket;
+    let updatedTicket: Ticket | null = ticket;
     for (const f of modalAttachedFiles) {
       const fileNameStr = `${f.name} (${f.size})`;
       updatedTicket = await AdminApiService.addAttachment(id, fileNameStr);

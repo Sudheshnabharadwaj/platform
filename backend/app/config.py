@@ -19,7 +19,16 @@ class Settings(BaseSettings):
     app_env: Literal["development", "staging", "production"] = "development"
     app_secret_key: str = "change-me-in-production-32-chars!!"
     debug: bool = False
-    allowed_origins: list[str] = ["http://localhost:3000"]
+    allowed_origins: list[str] = [
+        "http://localhost:3000",
+        "http://localhost:5173",
+        "http://localhost:5174",
+        "http://localhost:5180",
+        "http://127.0.0.1:3000",
+        "http://127.0.0.1:5173",
+        "http://127.0.0.1:5174",
+        "http://127.0.0.1:5180",
+    ]
 
     @field_validator("allowed_origins", mode="before")
     @classmethod
@@ -28,9 +37,14 @@ class Settings(BaseSettings):
             return [o.strip() for o in v.split(",")]
         return v
 
+    # ── JWT / Auth ────────────────────────────────────────────────────────────
+    jwt_secret_key: str = "super-secret-jwt-key-for-ticketing-platform-2026"
+    jwt_algorithm: str = "HS256"
+    access_token_expire_minutes: int = 60 * 24  # 24 hours
+
     # ── Database ─────────────────────────────────────────────────────────────
     database_url: str = (
-        "postgresql+asyncpg://platform:platform_secret@localhost:5432/platform_db"
+        "postgresql+asyncpg://platform:platform_secret@127.0.0.1:5432/platform_db"
     )
 
     # ── Redis ─────────────────────────────────────────────────────────────────

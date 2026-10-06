@@ -4,7 +4,7 @@ import sentry_sdk
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.v1.router import router as v1_router
+from app.api.v1.router import api_router, router as v1_router
 from app.config import get_settings
 from app.core.exceptions import register_exception_handlers
 from app.core.logging import configure_logging
@@ -30,12 +30,12 @@ configure_telemetry(debug=settings.debug)
 
 def create_app() -> FastAPI:
     app = FastAPI(
-        title="Platform API",
-        version="0.1.0",
-        description="Phase 1 backend API — FastAPI + PostgreSQL + Keycloak",
-        docs_url="/docs" if settings.debug else None,
-        redoc_url="/redoc" if settings.debug else None,
-        openapi_url="/openapi.json" if settings.debug else None,
+        title="Ticketing Platform API",
+        version="1.0.0",
+        description="Ticketing Platform Backend API — FastAPI + PostgreSQL + JWT",
+        docs_url="/docs",
+        redoc_url="/redoc",
+        openapi_url="/openapi.json",
     )
 
     # ── CORS ─────────────────────────────────────────────────────────────────
@@ -52,6 +52,7 @@ def create_app() -> FastAPI:
 
     # ── Routers ──────────────────────────────────────────────────────────────
     app.include_router(v1_router)
+    app.include_router(api_router)
 
     # ── OpenTelemetry instrumentation ─────────────────────────────────────────
     instrument_app(app)

@@ -15,6 +15,11 @@ class AppError(Exception):
         super().__init__(message)
 
 
+class BadRequestError(AppError):
+    def __init__(self, message: str = "Bad request") -> None:
+        super().__init__(message, status.HTTP_400_BAD_REQUEST)
+
+
 class NotFoundError(AppError):
     def __init__(self, resource: str, id: object = None) -> None:
         detail = f"{resource} not found" if id is None else f"{resource} '{id}' not found"

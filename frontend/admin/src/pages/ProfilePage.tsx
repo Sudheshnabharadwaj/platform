@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { User, ShieldCheck, Building2, Camera, Upload, Trash2, Edit3, Save, X, Mail, Phone } from 'lucide-react';
+import { User, ShieldCheck, Building2, Camera, Upload, Edit3, Save, X, Mail, Phone } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { Select } from '../components/ui/Select';

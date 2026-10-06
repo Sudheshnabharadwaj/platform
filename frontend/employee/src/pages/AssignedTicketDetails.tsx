@@ -3,13 +3,11 @@ import { useParams, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
   Clock,
-  User,
   Users,
   Paperclip,
   Send,
   CheckCircle2,
   FileText,
-  Upload,
   Activity,
   AlertCircle,
   AlertTriangle,
@@ -141,7 +139,7 @@ export const AssignedTicketDetails: React.FC = () => {
   const handleAddAttachmentSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!id || modalAttachedFiles.length === 0) return;
-    let updatedTicket = ticket;
+    let updatedTicket: EmployeeTicket | null = ticket;
     modalAttachedFiles.forEach((f) => {
       const fileNameStr = `${f.name} (${f.size})`;
       updatedTicket = EmployeeService.addAttachment(id, fileNameStr);

@@ -1,4 +1,4 @@
-import type { EmployeeTicket, EmployeeProfile, EmployeeNotificationItem, TicketPriority, TicketStatus } from '../types';
+import type { EmployeeTicket, EmployeeProfile, EmployeeNotificationItem, TicketPriority, TicketStatus, AssignedTeamLead } from '../types';
 import { EmailService } from './emailService';
 
 const INITIAL_EMPLOYEE_TICKETS: EmployeeTicket[] = [
@@ -317,6 +317,7 @@ export const EmployeeService = {
     description: string;
     attachments?: string[];
     teamLeads?: AssignedTeamLead[];
+    employees?: Array<{ id: string; name: string; role: string; email: string; employeeId: string }>;
   }): EmployeeTicket {
     const tickets = this.getTickets();
     const nextNum = 2001 + tickets.length;
@@ -339,9 +340,13 @@ export const EmployeeService = {
           role: tl.role,
         }));
 
+    const employeeNote = data.employees && data.employees.length > 0
+      ? ` Assigned team member(s): ${data.employees.map((e) => `${e.name} (${e.employeeId})`).join(', ')}.`
+      : '';
+
     const routingSummaryText = teamLeads.length > 0
-      ? `Ticket automatically routed to ${teamLeads.map((tl) => `${tl.department} (${tl.name} — ${tl.role})`).join(' and ')}.`
-      : `Ticket created and routed to ${mainDepartmentStr}.`;
+      ? `Ticket routed to ${teamLeads.map((tl) => `${tl.department} (${tl.name} — ${tl.role})`).join(' and ')}.${employeeNote}`
+      : `Ticket created and routed to ${mainDepartmentStr}.${employeeNote}`;
 
     const newTicket: EmployeeTicket = {
       id: `emp-t-${Date.now()}`,
@@ -359,6 +364,11 @@ export const EmployeeService = {
         department: tl.department,
         role: tl.role,
       })),
+      employees: data.employees,
+      employeeIds: data.employees?.map((e) => e.id),
+      assignedTo: data.employees && data.employees.length > 0
+        ? data.employees.map((e) => `${e.name} (${e.employeeId})`).join(', ')
+        : 'Unassigned',
       priority: data.priority,
       status: 'Open',
       createdAt: formatted,

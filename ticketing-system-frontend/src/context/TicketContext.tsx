@@ -21,6 +21,10 @@ interface TicketContextType {
     departments?: string[];
     taggedMembers?: { id: string; name: string; department: string; avatar?: string }[];
     taggedMemberIds?: string[];
+    teamLeads?: { id: string; name: string; employeeId: string; role: string; email: string }[];
+    teamLeadIds?: string[];
+    taggedEmployees?: { id: string; name: string; employeeId: string; role: string; email: string }[];
+    employeeIds?: string[];
     attachments?: { name: string; size: string }[];
   }) => Ticket;
   workOnTicket: (ticketId: string) => void;
@@ -52,29 +56,42 @@ export const TicketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     departments?: string[];
     taggedMembers?: { id: string; name: string; department: string; avatar?: string }[];
     taggedMemberIds?: string[];
+    teamLeads?: { id: string; name: string; employeeId: string; role: string; email: string }[];
+    teamLeadIds?: string[];
+    taggedEmployees?: { id: string; name: string; employeeId: string; role: string; email: string }[];
+    employeeIds?: string[];
     attachments?: { name: string; size: string }[];
   }): Ticket => {
     const nextNum = tickets.length + 1001;
     const ticketId = `TKT-${nextNum}`;
     const now = new Date().toISOString();
 
+    const taggedEmps = data.taggedEmployees || [];
+    const assignedAgentName = taggedEmps.length > 0
+      ? taggedEmps.map((e) => `${e.name} (${e.employeeId})`).join(', ')
+      : "Unassigned";
+
     const newTicket: Ticket = {
       id: ticketId,
       subject: data.subject,
       description: data.description,
-      employee: "Alex Morgan",
+      employee: "Sarah Connor",
       employeeId: "TL001",
-      employeeEmail: "teamlead@ticketing.com",
+      employeeEmail: "sarah.connor@company.com",
       department: data.departments && data.departments.length > 0 ? data.departments.join(', ') : (data.department || "IT Support"),
       departments: data.departments || [],
       taggedMembers: data.taggedMembers || [],
       taggedMemberIds: data.taggedMemberIds || [],
+      teamLeads: data.teamLeads || [],
+      teamLeadIds: data.teamLeadIds || [],
+      taggedEmployees: data.taggedEmployees || [],
+      employeeIds: data.employeeIds || [],
       category: data.category,
       priority: data.priority,
       status: "Open",
-      assignedAgent: "Unassigned",
-      handledBy: "unassigned",
-      assignedToType: "unassigned",
+      assignedAgent: assignedAgentName,
+      handledBy: taggedEmps.length > 0 ? "employee" : "unassigned",
+      assignedToType: taggedEmps.length > 0 ? "employee" : "unassigned",
       slaStatus: "Within SLA",
       slaRemaining: "8h 00m remaining",
       createdAt: now,
@@ -83,12 +100,34 @@ export const TicketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       comments: [],
       activities: [
         {
-          id: `act-${Date.now()}`,
+          id: `act-${Date.now()}-1`,
           ticketId: ticketId,
-          user: "Alex Morgan",
+          user: "Sarah Connor",
           action: "Ticket created",
           timestamp: now,
         },
+        ...(data.teamLeads && data.teamLeads.length > 0
+          ? [
+              {
+                id: `act-${Date.now()}-2`,
+                ticketId: ticketId,
+                user: "System",
+                action: `Assigned Team Lead: ${data.teamLeads.map((tl) => `${tl.name} (${tl.employeeId})`).join(', ')}`,
+                timestamp: now,
+              },
+            ]
+          : []),
+        ...(taggedEmps.length > 0
+          ? [
+              {
+                id: `act-${Date.now()}-3`,
+                ticketId: ticketId,
+                user: "System",
+                action: `Assigned Team Member(s): ${assignedAgentName}`,
+                timestamp: now,
+              },
+            ]
+          : []),
       ],
     };
 
@@ -98,7 +137,7 @@ export const TicketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const newNotif: NotificationItem = {
       id: `n-${Date.now()}`,
       title: "New Ticket Created",
-      message: `Ticket ${ticketId} created successfully: "${data.subject}"`,
+      message: `Ticket ${ticketId} created successfully: "${data.subject}". Email sent successfully.`,
       timestamp: "Just now",
       read: false,
       ticketId: ticketId,
